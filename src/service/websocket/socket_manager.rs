@@ -1,10 +1,14 @@
 use super::messaging::{answer_generator::AnswerGenerator, pinger_job::PingerJob};
+use crate::clients::public_ip;
+use crate::server_constants;
 use crate::service::websocket::signal_connection_maker::SignalConnectionMaker;
 use async_std::task;
 use serde::Deserialize;
 use std::net::TcpStream;
 use std::time::Duration;
 use tungstenite::{stream::MaybeTlsStream, Error::Io, Message, WebSocket};
+
+type ResultOrError<T, E> = std::result::Result<T, E>;
 
 pub struct SocketManager<'a> {
     answer_generator: Option<AnswerGenerator>,
@@ -81,7 +85,7 @@ impl<'a> SocketManager<'a> {
         }
     }
 
-    async fn blocking_listen(&mut self) -> Result<(), std::io::Error> {
+    async fn blocking_listen(&mut self) -> ResultOrError<(), std::io::Error> {
         loop {
             let msg = self.socket.read_message();
             if msg.is_err() {
@@ -97,15 +101,12 @@ impl<'a> SocketManager<'a> {
             match deserialized {
                 IncomingMessage::SDPOffer(offer) => {
                     log::info!("Offer Description received : {}", offer.description);
-                    // let test = self.answer_generator.as_mut();
+                    let ip = public_ip::get_public_ip().await;
 
-                    let answer = self
-                        .answer_generator
-                        .as_ref()
-                        .unwrap()
-                        .generate_answer(offer.description);
-
-                    self.send_message_to_signal_sever(answer)
+                    self.send_message_to_signal_sever(OutgoingMessage {
+                        message_type: OutgoingType::Answer,
+                        message: std::format!("{}:{}", ip, server_constants::SERVER_PORT),
+                    })
                 }
                 IncomingMessage::Pong => log::info!("pong"),
             }

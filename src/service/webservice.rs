@@ -22,5 +22,4 @@ pub async fn init() {
     tokio::spawn(async move {
         socket_manager.listen().await;
     });
-    loop {}
 }
