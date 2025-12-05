@@ -1,11 +1,13 @@
 use log::info;
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
+use tokio::sync::broadcast::{self, Receiver, Sender};
 use std::path::Path;
-use std::sync::mpsc::Receiver;
+// use std::sync::mpsc::Receiver;
 use std::sync::{mpsc, Arc, Mutex};
 
 use crate::db::watched_folders_table::WatchedFolder;
 
+#[derive(Debug, Clone)]
 pub enum FolderListChangeEvent {
     Added(WatchedFolder),
     Removed(WatchedFolder),
@@ -14,7 +16,7 @@ pub enum FolderListChangeEvent {
 /// Async, futures channel based event watching
 pub struct FolderWatcher {
     watcher: Arc<Mutex<RecommendedWatcher>>,
-    folder_content_update_event_receiver: Arc<Mutex<Receiver<Result<Event, notify::Error>>>>,
+    folder_content_update_event_receiver: Arc<Mutex<mpsc::Receiver<Result<Event, notify::Error>>>>,
     folder_list_event_receiver: Option<Receiver<FolderListChangeEvent>>,
 }
 
@@ -41,12 +43,12 @@ impl FolderWatcher {
         let folder_list_event_receiver = self.folder_list_event_receiver.take();
         let folder_content_update_event_receiver = self.folder_content_update_event_receiver.clone();
 
-        // Spawn `watch_ui_events` as a separate task
+        // TODO mode this into a method
         let ui_events_task = tokio::spawn(async move {
-            if let Some(receiver) = folder_list_event_receiver {
-                while let Ok(watched_folder_change_event) = receiver.recv() {
+            if let Some(mut receiver) = folder_list_event_receiver {
+                while let Ok(watched_folder_change_event) = receiver.recv().await {
                     let mut unwrapped_watcher_clone_ui = watcher_clone_ui.lock().unwrap();
-  
+
                     match watched_folder_change_event {
                         FolderListChangeEvent::Added(watched_folder) => {
                             info!("received event: added folder path to be watched: {}", watched_folder.path);
@@ -61,18 +63,11 @@ impl FolderWatcher {
                                 .unwrap();
                         }
                     }
-
-                    // info!("received event: folder path: {}", watched_folder.path);
-                    // watcher_clone_ui
-                    //     .lock()
-                    //     .unwrap()
-                    //     .watch(watched_folder.path.as_ref(), RecursiveMode::Recursive)
-                    //     .unwrap();
                 }
             }
         });
 
-        // Spawn `watch_folders` as a separate task
+        // TODO mode this into a method
         let folders_task = tokio::spawn(async move {
             for path in &paths {
                 watcher_clone_folders
@@ -97,23 +92,39 @@ impl FolderWatcher {
         Ok(())
     }
 
-    pub fn create_folders_to_watch_event_receiver(&mut self) -> mpsc::Sender<FolderListChangeEvent> {
-        let (sender, receiver) = mpsc::channel();
+    pub fn create_folders_to_watch_event_receiver(&mut self) -> Sender<FolderListChangeEvent> {
+        let (sender, receiver) = broadcast::channel::<FolderListChangeEvent>(100);
         self.folder_list_event_receiver = Some(receiver);
         sender
     }
 
-    // pub async fn watch_ui_events(&self) {
+    // pub async fn watch_ui_events(&self, 
+    //     watcher_clone_ui: Arc<Mutex<RecommendedWatcher>>, 
+    //     mut folder_list_event_receiver: Option<Receiver<FolderListChangeEvent>>) {
     //     info!("started watch_ui_events");
-    //     // TODO give a reason whny you have to set folder_list_event_receiver if None
-    //     while let Some(watched_folder) = self.folder_list_event_receiver.as_ref().unwrap().iter().next() {
-    //         info!("received event: folder path: {}", watched_folder.path);
-    //         self.watcher
-    //         .lock()
-    //         .unwrap()
-    //         .watch(watched_folder.path.as_ref(), RecursiveMode::Recursive)
-    //         .unwrap();
-    //     }
+
+    //     let ui_events_task = tokio::spawn(async move {
+    //         if let Some(mut receiver) = folder_list_event_receiver {
+    //             while let Ok(watched_folder_change_event) = receiver.recv().await {
+    //                 let mut unwrapped_watcher_clone_ui = watcher_clone_ui.lock().unwrap();
+
+    //                 match watched_folder_change_event {
+    //                     FolderListChangeEvent::Added(watched_folder) => {
+    //                         info!("received event: added folder path to be watched: {}", watched_folder.path);
+    //                         unwrapped_watcher_clone_ui
+    //                             .watch(watched_folder.path.as_ref(), RecursiveMode::Recursive)
+    //                             .unwrap();
+    //                     }
+    //                     FolderListChangeEvent::Removed(watched_folder) => {
+    //                         info!("received event: removed folder path to be watched: {}", watched_folder.path);
+    //                         unwrapped_watcher_clone_ui
+    //                             .unwatch(watched_folder.path.as_ref())
+    //                             .unwrap();
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     });
     // }
 
     

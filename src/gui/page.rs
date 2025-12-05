@@ -1,8 +1,9 @@
 use iced::Color;
 use iced::widget::Container;
 use log::info;
+use tokio::sync::broadcast::Sender;
 use std::{io, sync::Arc};
-use std::sync::mpsc::Sender;
+
 use iced::{
     executor,
     widget::{button, column, container, horizontal_space, row, text, Column},
@@ -101,7 +102,7 @@ impl Application for Page {
                 let folder = self.watched_folders_db.get(&(path)).unwrap();
                 self.watched_folders_db.delete(&(path)); //TODO deal with this error
                 self.refresh_watched_folder_list_ui();
-                // self.notify_folder_watcher_removal(folder);
+                self.notify_folder_watcher_removal(folder);
                 Command::none()
             }
             Message::SetPath(res) => {
@@ -130,7 +131,8 @@ impl Application for Page {
             .iter()
             .fold(watched_folders, |acc, watched_folder| {
                 acc.push(row![
-                    text(format!("{}", watched_folder.path)).width(400),
+                    button(text(&watched_folder.path))
+                        .width(400).on_press(Message::DeleteFilePicker(watched_folder.path.clone())),
                     button("-").on_press(Message::DeleteFilePicker(watched_folder.path.clone()))
                 ])
             });
@@ -139,7 +141,6 @@ impl Application for Page {
             text("Hello, iced!"),
             // horizontal_space(Length::Fixed(50.0)),
             text(format!("{}", self.path)),
-            button("+").on_press(Message::OpenFilePicker),
             text(format!(
                 "err {}",
                 match &self.error {
@@ -150,15 +151,21 @@ impl Application for Page {
         ];
 
         let row_with_background = Container::new(top_row)
-            // .width(Length::Fill)
+            .width(Length::Fill)
             // .padding(8)
             .style(|_theme: &Theme| container::Appearance {
                 background: Some(Color::from_rgb(0.2, 0.4, 0.8).into()),
                 ..Default::default()
             });
 
-        let content = row![
+        let watched_folders_column = column![
+            text("Hello, iced!"),
+            button("+").on_press(Message::OpenFilePicker),
             watched_folders
+        ];
+
+        let content = row![
+            watched_folders_column
         ];
 
         container(column![row_with_background, content, text(format!("{}", self.counter))].padding(10)).into()

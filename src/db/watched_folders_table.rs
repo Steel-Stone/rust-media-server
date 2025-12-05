@@ -11,6 +11,7 @@ pub struct WatchedFoldersDb {
     pool: Arc<dyn ConnectionProvider>,
 }
 
+#[derive(Debug, Clone)]
 pub struct WatchedFolder {
     pub path: String,
     pub folder_name: String
