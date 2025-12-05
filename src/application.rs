@@ -39,7 +39,7 @@ pub async fn start() -> std::io::Result<()> {
 
     let mut watcher: watcher::FolderWatcher = watcher::FolderWatcher::new().unwrap();
 
-    let folder_watcher_notifier = watcher.create_sender();
+    let folder_watcher_notifier = watcher.create_folders_to_watch_event_receiver();
 
     let c = watched_folders_db.list();
 

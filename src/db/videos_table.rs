@@ -1,6 +1,5 @@
 use std::path::Path;
 use std::sync::Arc;
-use iced::keyboard::KeyCode::T;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{params, Error, Connection};
 use strum_macros::Display;
