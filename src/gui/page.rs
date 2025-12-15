@@ -1,4 +1,5 @@
-use iced::Color;
+use iced::Alignment;
+use iced::{Color, widget::Row};
 use iced::widget::Container;
 use log::info;
 use tokio::sync::broadcast::Sender;
@@ -7,7 +8,7 @@ use std::{io, sync::Arc};
 use iced::{
     executor,
     widget::{button, column, container, horizontal_space, row, text, Column},
-    Application, Command, Element, Error, Length, Sandbox, Settings, Theme,
+    Application, Command, Element, Error, Length, Sandbox, Settings, Theme, Border,
 };
 use notify::Event;
 use rusqlite::Error as SqlErr;
@@ -132,7 +133,7 @@ impl Application for Page {
             .fold(watched_folders, |acc, watched_folder| {
                 acc.push(row![
                     button(text(&watched_folder.path))
-                        .width(400).on_press(Message::DeleteFilePicker(watched_folder.path.clone())),
+                        .width(400),
                     button("-").on_press(Message::DeleteFilePicker(watched_folder.path.clone()))
                 ])
             });
@@ -158,15 +159,33 @@ impl Application for Page {
                 ..Default::default()
             });
 
-        let watched_folders_column = column![
-            text("Hello, iced!"),
-            button("+").on_press(Message::OpenFilePicker),
+
+        let add_new_folder_row2 = iced::widget::Row::new()
+        .push(text("Add new watched folder"))
+        .push(button("+")
+            .on_press(Message::OpenFilePicker))
+        .align_items(Alignment::Center);
+
+        let watched_folders_column = Container::new(column![
+            add_new_folder_row2,
             watched_folders
-        ];
+        ])
+        .padding(10) // Added padding to the container
+        .style(|_theme: &iced::Theme| container::Appearance {
+            border: Border {
+                color: Color::WHITE,
+                width: 1.0,
+                radius: 4.0.into(), // rounded corners
+            },
+            ..Default::default()
+        });
+
+
 
         let content = row![
             watched_folders_column
         ];
+
 
         container(column![row_with_background, content, text(format!("{}", self.counter))].padding(10)).into()
     }

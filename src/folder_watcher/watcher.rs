@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::{mpsc, Arc, Mutex};
 
 use crate::db::watched_folders_table::WatchedFolder;
+use crate::service::video::folder_change_event_handler::handle_folder_change_event;
 
 #[derive(Debug, Clone)]
 pub enum FolderListChangeEvent {
@@ -80,7 +81,10 @@ impl FolderWatcher {
             while let Ok(res) = folder_content_update_event_receiver.lock().unwrap().recv() {
                 info!("in loop");
                 match res {
-                    Ok(event) => info!("changed: {:?}", event),
+                    Ok(event) => {
+                        info!("changed: {:?}", event);
+                        handle_folder_change_event(event);
+                    },
                     Err(e) => info!("watch error: {:?}", e),
                 }
             }
